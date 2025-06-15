@@ -1,0 +1,332 @@
+DROP TRIGGER log_rental_insert;
+DELIMITER $ 
+CREATE TRIGGER log_rental
+AFTER INSERT ON rental
+FOR EACH ROW
+BEGIN
+DECLARE name VARCHAR(128);
+DECLARE t VARCHAR(250);
+
+SELECT title 
+INTO name 
+FROM inventory 
+WHERE inventory_id=new.inventory_id; 
+
+SELECT 
+CONCAT('Customer ' ,new.customer_id, ' rented item titled: ',name)
+INTO t;
+
+INSERT INTO log VALUES (DEFAULT,DEFAULT,t);
+
+END$
+DELIMITER ;
+
+INSERT INTO `rental` (`rental_id`, `rental_date`, `inventory_id`, `customer_id`, `type`) VALUES
+(DEFAULT, '2008-06-15 01:25:08', 4, 21,'m',DEFAULT);
+
+DROP TRIGGER log_rental_delete;
+DELIMITER $ 
+CREATE TRIGGER log_rental_delete
+AFTER DELETE ON rental
+FOR EACH ROW
+BEGIN
+
+DECLARE t VARCHAR(250);
+
+
+SELECT 
+CONCAT('Rental number ', old.rental_id, ' was deleted')
+INTO t;
+
+INSERT INTO log VALUES (DEFAULT,DEFAULT,t);
+
+END$
+DELIMITER ;
+
+
+DROP TRIGGER log_rental_update;
+DELIMITER $ 
+CREATE TRIGGER log_rental_update
+AFTER UPDATE ON rental
+FOR EACH ROW
+BEGIN
+
+DECLARE t VARCHAR(250);
+
+
+SELECT 
+CONCAT('Rental number ', old.rental_id, ' was updated')
+INTO t;
+
+INSERT INTO log VALUES (DEFAULT,DEFAULT,t);
+
+END$
+DELIMITER ;
+
+
+INSERT INTO `rental` (`rental_id`, `rental_date`, `inventory_id`, `customer_id`, `type`) VALUES
+(DEFAULT, '2008-06-15 01:25:08', 4, 21,'m',DEFAULT);
+
+
+
+DROP TRIGGER log_payment_insert;
+DELIMITER $ 
+CREATE TRIGGER log_payment_insert
+AFTER INSERT ON payment
+FOR EACH ROW
+BEGIN
+DECLARE name VARCHAR(128);
+DECLARE t VARCHAR(250);
+
+SELECT 
+CONCAT('Customer ' ,new.customer_id, ' payed ',new.amount,' for the rental number ',new.rental_id)
+INTO t;
+
+INSERT INTO log VALUES (DEFAULT,DEFAULT,t);
+
+END$
+DELIMITER ;
+
+
+DROP TRIGGER log_payment_delete;
+DELIMITER $ 
+CREATE TRIGGER log_payment_delete
+AFTER DELETE ON payment
+FOR EACH ROW
+BEGIN
+
+DECLARE t VARCHAR(250);
+
+
+SELECT 
+CONCAT('Payment number ', old.payment_id, ' was deleted')
+INTO t;
+
+INSERT INTO log VALUES (DEFAULT,DEFAULT,t);
+
+END$
+DELIMITER ;
+
+
+
+
+
+DROP TRIGGER log_payment_update;
+DELIMITER $ 
+CREATE TRIGGER log_payment_update
+AFTER UPDATE ON payment
+FOR EACH ROW
+BEGIN
+
+DECLARE t VARCHAR(250);
+
+
+SELECT 
+CONCAT('Payment number ', old.payment_id, ' was updated')
+INTO t;
+
+INSERT INTO log VALUES (DEFAULT,DEFAULT,t);
+
+END$
+DELIMITER ;
+
+
+
+
+
+DROP TRIGGER log_inventory_insert;
+DELIMITER $ 
+CREATE TRIGGER log_inventory_insert
+AFTER INSERT ON inventory
+FOR EACH ROW
+BEGIN
+
+DECLARE t VARCHAR(250);
+
+IF new.type LIKE 'm' THEN
+SELECT 
+CONCAT('A new movie titled ', new.title,' was added')
+INTO t;
+
+ELSE
+SELECT 
+CONCAT('A new episode titled ', new.title,' was added')
+INTO t;
+END IF;
+
+INSERT INTO log VALUES (DEFAULT,DEFAULT,t);
+
+END$
+DELIMITER ;
+
+
+
+DROP TRIGGER log_inventory_delete;
+DELIMITER $ 
+CREATE TRIGGER log_inventory_delete
+AFTER DELETE ON inventory
+FOR EACH ROW
+BEGIN
+
+DECLARE t VARCHAR(250);
+
+IF old.type LIKE 'm' THEN
+SELECT 
+CONCAT('A movie titled ', old.title,' was deleted')
+INTO t;
+
+ELSE
+SELECT 
+CONCAT('An episode titled ', old.title,' was deleted')
+INTO t;
+END IF;
+
+INSERT INTO log VALUES (DEFAULT,DEFAULT,t);
+
+END$
+DELIMITER ;
+
+
+
+DROP TRIGGER log_inventory_update;
+DELIMITER $ 
+CREATE TRIGGER log_inventory_update
+AFTER UPDATE ON inventory
+FOR EACH ROW
+BEGIN
+
+DECLARE t VARCHAR(250);
+
+IF old.type LIKE 'm' THEN
+SELECT 
+CONCAT('A movie titled ', old.title,' was updated')
+INTO t;
+
+ELSE
+SELECT 
+CONCAT('An episode titled ', old.title,' was updated')
+INTO t;
+END IF;
+
+INSERT INTO log VALUES (DEFAULT,DEFAULT,t);
+
+END$
+DELIMITER ;
+
+
+
+
+UPDATE rental set rental_date=NOW()
+where rental_date='2005-06-15 01:25:08';
+
+
+UPDATE payment set payment_date=NOW()
+where payment_date='2005-06-15 01:25:08';
+
+UPDATE inventory set title = 'teh lurd of teh reings'
+where title='SPEED SUIT';
+
+
+
+
+DELETE FROM rental where rental_date='2005-08-17 16:10:19';
+
+DELETE FROM payment where payment_date='2005-08-17 16:10:19';
+
+
+DELETE FROM inventory where title = 'LUCK OPUS';
+
+
+
+
+
+
+
+
+DROP TRIGGER user_customer_update;
+DELIMITER $ 
+CREATE TRIGGER user_customer_update
+BEFORE UPDATE ON user
+FOR EACH ROW
+BEGIN
+DECLARE flag BOOLEAN;
+
+
+
+UPDATE rental set email='aadk'
+where user_id=14;
+
+
+
+SELECT EXISTS(
+SELECT customer_id
+FROM customer
+WHERE user_id=old.user_id
+)INTO flag;
+
+IF (flag) THEN
+    IF (old.email!=new.email)THEN
+    SIGNAL SQLSTATE VALUE '45000'
+    SET MESSAGE_TEXT = 'Customers cannnot change their own email.';
+    END IF;
+END IF;
+
+END$
+DELIMITER ;
+
+UPDATE user set email='aadk'
+where user_id=14;
+
+
+DROP TRIGGER rental_discount;
+DELIMITER $ 
+CREATE TRIGGER rental_discount
+BEFORE INSERT ON rental
+FOR EACH ROW
+BEGIN
+
+DECLARE a SMALLINT;
+DECLARE mail VARCHAR(50);
+DECLARE u SMALLINT;
+
+SELECT user_id
+INTO u
+FROM customer
+where customer_id=new.customer_id;
+
+SELECT email 
+into mail
+FROM user
+WHERE user_id=u;
+
+CALL ASK2(mail,new.rental_date,a);
+
+
+IF(MOD(a+1,3)=0) THEN
+SET new.discount=50;
+END IF;
+
+END$
+DELIMITER ;
+
+SELECT DATE(rental_date),customer_id,discount
+FROM rental
+ORDER BY rental_date, customer_id;
+
+
+INSERT INTO `rental` (`rental_id`, `rental_date`, `inventory_id`, `customer_id`, `type`,`discount`) VALUES
+(DEFAULT, NOW(), 4, 21,'m',DEFAULT),
+(DEFAULT, NOW(), 4, 21,'m',DEFAULT),
+(DEFAULT, NOW(), 4, 21,'m',DEFAULT),
+(DEFAULT, NOW(), 4, 21,'m',DEFAULT),
+(DEFAULT, NOW(), 4, 21,'m',DEFAULT),
+(DEFAULT, NOW(), 4, 21,'m',DEFAULT),
+(DEFAULT, NOW(), 4, 21,'m',DEFAULT),
+(DEFAULT, NOW(), 4, 21,'m',DEFAULT),
+(DEFAULT, NOW(), 4, 21,'m',DEFAULT),
+(DEFAULT, NOW(), 4, 21,'m',DEFAULT),
+(DEFAULT, NOW(), 4, 21,'m',DEFAULT),
+(DEFAULT, NOW(), 4, 21,'m',DEFAULT),
+(DEFAULT, NOW(), 4, 21,'m',DEFAULT),
+(DEFAULT, NOW(), 4, 21,'m',DEFAULT);
+SELECT customer_id,discount,DATE(rental_date) from rental WHERE DATE(rental_date)=DATE(NOW()) ORDER BY rental_date DESC, customer_id ;

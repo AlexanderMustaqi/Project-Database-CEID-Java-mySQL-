@@ -1,0 +1,193 @@
+DROP PROCEDURE ASK1;
+DELIMITER $
+CREATE PROCEDURE ASK1( IN eidos CHAR, IN a MEDIUMINT, IN date_start DATE, IN date_end DATE )
+BEGIN
+ IF(eidos LIKE 'm') THEN
+
+  SELECT f.title, f.film_id, COUNT(r.inventory_id) AS VIEWS
+  FROM FILM AS f
+  LEFT JOIN  
+    (
+     SELECT inventory_id 
+     FROM rental 
+     WHERE (type LIKE 'm' AND rental_date> date_start AND rental_date<date_end)
+     
+    ) AS r
+   ON f.inventory_id=r.inventory_id
+  GROUP BY f.inventory_id
+  ORDER BY COUNT(f.inventory_id) DESC LIMIT a; 
+
+ ELSEIF(eidos LIKE 's') THEN
+
+  SELECT seires.title,seires.series_id, IFNULL(sum(views_sezon),0) AS telika_views
+  FROM series AS seires                                                      
+  LEFT JOIN 
+   (
+     SELECT series_id, sezon.season_id, sum(views_episodeiou) AS views_sezon
+     FROM season as sezon
+     INNER JOIN 
+     (
+        SELECT season_id, episode_id, COUNT(*) AS views_episodeiou
+        FROM episode AS e
+        INNER JOIN rental AS r
+        ON e.inventory_id = r.inventory_id
+        WHERE (type LIKE 's' AND rental_date> date_start AND rental_date<date_end)
+        GROUP BY episode_id
+
+      ) AS episode_count
+      ON sezon.season_id=episode_count.season_id
+      GROUP BY sezon.season_id
+
+   ) AS season_count
+   ON  seires.series_id = season_count.series_id
+   GROUP BY  series_id 
+   ORDER BY telika_views DESC
+   LIMIT a;
+ END IF;
+END$
+DELIMITER ;
+
+CALL ASK1('s', 3 ,'2005-06-15 01:25:08','2005-08-23 18:01:31');
+
+
+
+
+DROP PROCEDURE ASK2;
+DELIMITER $
+CREATE PROCEDURE ASK2( IN mail VARCHAR(50), IN mera DATE, OUT result INT)
+BEGIN
+
+DECLARE id SMALLINT;
+SELECT customer_id
+INTO id
+FROM customer AS c INNER JOIN user AS u ON c.user_id=u.user_id
+WHERE u.email LIKE mail;
+
+SELECT count(*) AS enoikiaseis
+INTO result
+FROM rental 
+WHERE DATE(rental_date)=mera
+GROUP BY customer_id
+HAVING id = customer_id;
+
+
+END$
+DELIMITER ;
+
+
+CALL ASK2('MARSHALL.THORN@sakilacustomer.org','2005-08-17',@b);
+SELECT @b;
+
+
+
+DROP PROCEDURE ASK3;
+DELIMITER $
+CREATE PROCEDURE ASK3()
+BEGIN
+
+SELECT tainies.year_and_month, IFNULL(movie_earnings,0) AS Movie_Earnings , IFNULL(series_earnings,0) AS Series_Earnings
+  FROM 
+    (
+    SELECT DATE_FORMAT(payment_date, '%Y-%m') AS year_and_month, sum(amount) AS movie_earnings
+    FROM payment 
+    WHERE type LIKE 'm'
+    GROUP BY year_and_month
+    ) AS tainies
+
+    LEFT JOIN
+
+    (
+    SELECT DATE_FORMAT(payment_date, '%Y-%m') AS year_and_month, sum(amount) AS series_earnings
+    FROM payment 
+    WHERE type LIKE 's'
+    GROUP BY year_and_month
+    ) AS seires
+    ON tainies.year_and_month=seires.year_and_month
+    
+UNION 
+
+SELECT tainies.year_and_month, IFNULL(movie_earnings,0) AS Movie_Earnings, IFNULL(series_earnings,0) AS Series_Earnings
+  FROM 
+    (
+    SELECT DATE_FORMAT(payment_date, '%Y-%m') AS year_and_month, sum(amount) AS movie_earnings
+    FROM payment 
+    WHERE type LIKE 'm'
+    GROUP BY year_and_month
+    ) AS tainies
+
+    RIGHT JOIN
+
+    (
+    SELECT DATE_FORMAT(payment_date, '%Y-%m') AS year_and_month, sum(amount) AS series_earnings
+    FROM payment 
+    WHERE type LIKE 's'
+    GROUP BY year_and_month
+    ) AS seires
+    ON tainies.year_and_month=seires.year_and_month;
+
+
+END$
+DELIMITER ;
+
+CALL ASK3();
+
+
+
+
+
+
+
+
+DROP PROCEDURE ASK4_1;
+DELIMITER $
+CREATE PROCEDURE ASK4_1(IN name1 VARCHAR(45), IN name2 VARCHAR(45))
+BEGIN
+
+SELECT last_name, first_name
+FROM actor
+WHERE STRCMP(last_name,name1 )>=0  AND STRCMP(last_name, name2)<0
+ORDER BY last_name,first_name;
+
+SELECT count(*)
+FROM actor
+WHERE STRCMP(last_name,name1 )>=0  AND STRCMP(last_name, name2)<0;
+
+END$
+DELIMITER ;
+
+CALL ASK4_1('at','be');
+
+
+
+DROP PROCEDURE ASK4_2;
+DELIMITER $
+CREATE PROCEDURE ASK4_2(IN name VARCHAR(45))
+BEGIN
+
+DECLARE  a INT;
+
+SELECT last_name, first_name
+FROM actor
+WHERE STRCMP(last_name,name )=0 
+ORDER BY last_name,first_name;
+
+SELECT count(*)
+INTO a
+FROM actor
+WHERE STRCMP(last_name,name)=0;
+
+IF (a>1) THEN 
+SELECT a AS actors_with_given_name;
+END IF;
+
+END$
+DELIMITER ;
+
+CALL ASK4_2('miranda');
+
+
+
+
+
+
+
